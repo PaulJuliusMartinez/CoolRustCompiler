@@ -1,0 +1,103 @@
+Identifiers:
+
+ClassNames: [A-Z][_a-zA-Z0-9]*
+variableNames: [a-a][_a-zA-Z0-9]*
+integer literals: [0-9]+
+
+Strings:
+Double quotes
+
+\b -> backspace
+\t -> tab
+\n -> newline
+\f -> formfeed
+
+Comments:
+-- Single line
+(* multiline *)
+
+Keywords:
+case
+class
+else
+esac
+fi
+if
+in
+inherits
+isvoid
+let
+loop
+new
+not
+of
+pool
+then
+while
+
+true
+false
+
+whitespace
+\n\f\r\t\v
+
+Punctuation
+<-
+<=
+{}():;.,@+-*/~<=
+
+State Start:
+A-Z       -> ClassName
+a-z       -> Variable
+0-9       -> Number
+Newline   -> { Line #++ } Start
+WS        -> Start
+<         -> LessThan
+-         -> CommentOrMinus
+(         -> CommentOrParens
+{}):;.,@+*/~<=
+          -> ( Punc Token ) Start
+"         -> String
+
+State ClassName:
+a-zA-Z0-9_ -> ClassName
+.          -> ( ClassName or Keyword ) Start
+
+State Variable:
+a-zA-Z0-9_ -> Variable
+.          -> ( Variable or Keyword or true/false )Start
+
+Number:
+0-9        -> Variable
+.          -> Start
+
+LessThan:
+-          -> ARROW
+=          -> LESS_THAN_EQUAL
+.          -> ( < Token ) Start
+
+CommentOrMinus:
+-          -> SingleLineComment
+.          -> ( - Token ) Start
+
+CommentOrParens:
+*          -> MultiLineComment
+.          -> ( LPAREN ) Start
+
+SingleLineComment:
+\n         -> Start
+.          -> SingleLineComment
+
+MultiLineComment:
+*          -> MultiLineCommentEnd
+\n         -> { Line #++ } MultiLineComment
+.          -> MultiLineComment
+
+MultiLineCommentEnd:
+)          -> Start
+\n         -> { Line #++ } MultiLineComment
+.          -> MultiLineComment
+
+String:
+\          -> StringEscape:
+\n         -> Error
