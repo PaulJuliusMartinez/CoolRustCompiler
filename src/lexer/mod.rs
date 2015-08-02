@@ -3,9 +3,10 @@ use std::rc::Rc;
 use std::ascii::AsciiExt;
 use std::str::Chars;
 
+#[derive(Debug)]
 pub enum Token {
-    ClassName (Rc<String>),
-    VariableName (Rc<String>),
+    Type (Rc<String>),
+    Identifier (Rc<String>),
     IntegerLiteral (i32),
     StringLiteral (Rc<String>),
     Case,
@@ -44,7 +45,8 @@ pub enum Token {
     LessThan,
     Equal,
     LessThanEqual,
-    Arrow
+    Arrow,
+    EOF
 }
 
 #[derive(PartialEq)]
@@ -342,6 +344,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
             let _ = chars.next();
         }
     }
+    tokens.push(Token::EOF);
     return tokens;
 }
 
@@ -370,21 +373,21 @@ fn stringToToken(chars: String) -> Token {
             if lowercase {
                 Token::True
             } else {
-                Token::ClassName(Rc::new(copy))
+                Token::Type(Rc::new(copy))
             }
         },
         "false" => {
             if lowercase {
                 Token::False
             } else {
-                Token::ClassName(Rc::new(copy))
+                Token::Type(Rc::new(copy))
             }
         },
         other => {
             if lowercase {
-                Token::VariableName(Rc::new(copy))
+                Token::Identifier(Rc::new(copy))
             } else {
-                Token::ClassName(Rc::new(copy))
+                Token::Type(Rc::new(copy))
             }
         }
     }

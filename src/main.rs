@@ -20,4 +20,7 @@ fn main() {
 
     let tokens = lexer::lex(chars);
     let program = parser::parse_cool_program(&tokens);
+    if let Some(p) = program {
+        p.pretty_print(0);
+    }
 }

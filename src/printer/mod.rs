@@ -197,8 +197,8 @@ impl Printable for Token {
     fn pretty_print(&self, tabs: u32) {
         print!("Token: ");
         match *self {
-            Token::ClassName(ref class) => println!("Type: {}", class),
-            Token::VariableName(ref var) => println!("Identifier: {}", var),
+            Token::Type(ref class) => println!("Type: {}", class),
+            Token::Identifier(ref var) => println!("Identifier: {}", var),
             Token::IntegerLiteral(ref val) => println!("Integer: {}", val),
             Token::StringLiteral(ref val) => println!("String: {}", val),
             Token::Case => println!("case"),
@@ -237,7 +237,8 @@ impl Printable for Token {
             Token::LessThan => println!("lessThan"),
             Token::Equal => println!("equal"),
             Token::LessThanEqual => println!("lessThanEqual"),
-            Token::Arrow => println!("arrow")
+            Token::Arrow => println!("arrow"),
+            Token::EOF => println!("<EOF>")
         }
     }
 }

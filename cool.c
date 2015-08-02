@@ -1,1 +1,2 @@
-hello=1234"hello?"(<fjo<=)*@(**)
+class A inherits B {};
+class C inherits D {};
