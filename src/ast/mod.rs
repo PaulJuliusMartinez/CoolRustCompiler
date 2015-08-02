@@ -18,7 +18,7 @@ pub struct Class {
 pub enum Feature {
     Method {
         name: Symbol,
-        params: Vec<Box<Formal>>,
+        params: Vec<Formal>,
         return_type: CoolType,
         body: Box<Expression>
     },

@@ -56,9 +56,8 @@ impl Printable for Feature {
 
 impl Printable for Formal {
     fn pretty_print(&self, tabs: u32) {
-        println(tabs, "_formal");
-        println(tabs + 1, &self.name);
-        println(tabs + 1, &self.cool_type);
+        println(tabs, &self.name);
+        println(tabs, &self.cool_type);
     }
 }
 
@@ -226,7 +225,7 @@ impl Printable for Token {
             Token::RightParen => println!("rightParen"),
             Token::Colon => println!("colon"),
             Token::Semicolon => println!("semicolon"),
-            Token::Period => println!("period"),
+            Token::Dot => println!("dot"),
             Token::Comma => println!("comma"),
             Token::At => println!("at"),
             Token::Plus => println!("plus"),

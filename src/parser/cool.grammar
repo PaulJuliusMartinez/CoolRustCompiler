@@ -58,27 +58,28 @@ Cool Grammar
 37:     E -> <string>
 38:     E -> true
 39:     E -> false
+40:     E -> <int literal>
 
 # L: Vec<Expression>
-40:     L -> G E
-41:     L ->
+41:     L -> G E
+42:     L ->
 
 # G: Vec<Expression>
-42:     G -> G E ,
-43:     G ->
+43:     G -> G E ,
+44:     G ->
 
 # T (Type): CoolType
-44:     T -> @ TYPE
-45:     T ->
+45:     T -> @ TYPE
+46:     T ->
 
 # N (Nested Let): Expression
-46:     N -> , id : TYPE W in E
-47:     N -> , id : TYPE W N
+47:     N -> , id : TYPE W in E
+48:     N -> , id : TYPE W N
 
 # M: CaseBranch
-48:     M -> M id : TYPE => E ;
-49:     M ->
+49:     M -> M id : TYPE => E ;
+50:     M ->
 
 # B (Block): Vec<Expression>
-50:     B -> B E ;
-51:     B ->
+51:     B -> B E ;
+52:     B ->
