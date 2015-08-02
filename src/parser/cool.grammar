@@ -13,8 +13,8 @@ Cool Grammar
 4:      I ->
 
 # F (Feature): Vec<Feature>
-5:      F -> id ( R ) : TYPE { E } ;
-6:      F -> id : TYPE W ;
+5:      F -> F id ( R ) : TYPE { E } ;
+6:      F -> F id : TYPE W ;
 7:      F ->
 
 # R: List<Formal>

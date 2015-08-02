@@ -10,7 +10,22 @@ macro_rules! match_single {
             },
             _ => {
                 println!("Errored in state {}", $states.last().unwrap());
-                break;
+                return None;
+            }
+        }
+    }}
+}
+
+macro_rules! match_type {
+    ($tok:expr, $states:ident, $new_state:expr, $types:expr) => {{
+        match *$tok {
+            Token::Type(ref type_name) => {
+                $types.push(type_name.clone());
+                $states.push($new_state);
+            },
+            _ => {
+                println!("Errored in state {}, expected a type", $states.last().unwrap());
+                return None;
             }
         }
     }}
@@ -25,7 +40,7 @@ macro_rules! match_single_capture {
             },
             _ => {
                 println!("Errored in state {}", $states.last().unwrap());
-                break;
+                return None;
             }
         }
     }}
@@ -76,7 +91,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         },
                         _ => {
                             println!("Errored in state {}", states.last().unwrap());
-                            break;
+                            return None;
                         }
                     }
                 },
@@ -91,9 +106,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     should_consume = false;
                 },
                 4 => {
-                    match_single_capture!(curr, Token::Type(ref type_name), states, 5,
-                        types.push(type_name.clone())
-                    );
+                    match_type!(curr, states, 5, types);
                 },
                 5 => {
                     match *curr {
@@ -107,7 +120,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         },
                         ref e @ _ => {
                             println!("Expected 'inherits' or '{{' but found {:?}", e);
-                            break;
+                            return None;
                         }
                     }
                 },
@@ -115,9 +128,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     match_single!(curr, Token::LeftBrace, states, 8);
                 },
                 7 => {
-                    match_single_capture!(curr, Token::Type(ref type_name), states, 9,
-                        types.push(type_name.clone())
-                    );
+                    match_type!(curr, states, 9, types);
                 },
                 8 => {
                     match *curr {
@@ -131,7 +142,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         },
                         ref e @ _ => {
                             println!("Expected 'identifier' or '}}' but found {:?}", e);
-                            break;
+                            return None;
                         }
                     }
                 },
@@ -151,7 +162,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         },
                         ref e @ _ => {
                             println!("Expected 'identifier' or '}}' but found {:?}", e);
-                            break;
+                            return None;
                         }
                     }
                 },
@@ -166,6 +177,55 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     features = Vec::new();
                     // 2:      C -> class TYPE I { F }
                     reduce!(states, 2, 6);
+                    should_consume = false;
+                },
+                12 => {
+                    match *curr {
+                        Token::LeftParen => {
+                            states.push(13);
+                        },
+                        Token::Colon => {
+                            states.push(14);
+                        },
+                        ref e @ _ => {
+                            println!("Expected '(' or ':' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                14 => {
+                    match_type!(curr, states, 17, types);
+                },
+                17 => {
+                    match *curr {
+                        Token::Arrow => {
+                            states.push(28);
+                        },
+                        Token::Semicolon => {
+                            states.push(21);
+                            expressions.push(Box::new(ast::Expression::NoExpr));
+                            should_consume = false;
+                        },
+                        ref e @ _ => {
+                            println!("Expected '<-' or ';' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                21 => {
+                    match_single!(curr, Token::Semicolon, states, 24);
+                },
+                24 => {
+                    let init = expressions.pop().unwrap();
+                    let var_type = types.pop().unwrap();
+                    let var_name = identifiers.pop().unwrap();
+                    features.push(Box::new(ast::Feature::Attribute{
+                        name: var_name,
+                        cool_type: var_type,
+                        expr: init
+                    }));
+                    // 6:      F -> F id : TYPE W ;
+                    reduce!(states, 6, 6);
                     should_consume = false;
                 },
                 150 => {
@@ -210,6 +270,19 @@ fn goto(state: i32, rule: i32) -> i32 {
         5 => {
             match rule {
                 3 => 6,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        8 => {
+            match rule {
+                5 => 10,
+                6 => 10,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        17 => {
+            match rule {
+                14 => 21,
                 _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
             }
         },
