@@ -1,0 +1,84 @@
+Cool Grammar
+
+
+# P (Program): Vec<Class>
+0:      P -> P C ;
+1:      P -> C ;
+
+# C (Class): Class
+2:      C -> class TYPE I { F }
+
+# I (Inherit): CoolType
+3:      I -> inherits TYPE
+4:      I ->
+
+# F (Feature): Vec<Feature>
+5:      F -> id ( R ) : TYPE { E } ;
+6:      F -> id : TYPE W ;
+7:      F ->
+
+# R: List<Formal>
+8:      R -> X A
+9:      R ->
+
+# A: Formal
+10:     A -> id : TYPE
+
+# X: List<Formal>
+11:     X -> X A ,
+12:     X ->
+
+# W: Expression
+13:     W -> <- E
+14:     W ->
+
+# E (Expression): Expression
+15:     E -> id <- E
+16:     E -> id ( L )
+17:     E -> E T . id ( L )
+18:     E -> if E then E else E fi
+19:     E -> while E loop E pool
+20:     E -> let id : TYPE W in E
+21:     E -> let id : TYPE W N
+22:     E -> case E of M id : TYPE => E ; esac
+23:     E -> new TYPE
+24:     E -> isvoid E
+25:     E -> not E
+26:     E -> E + E
+27:     E -> E - E
+28:     E -> E * E
+29:     E -> E / E
+30:     E -> E < E
+31:     E -> E <= E
+32:     E -> E = E
+33:     E -> ~ E
+34:     E -> ( E )
+35:     E -> { B E ; }
+36:     E -> <id>
+37:     E -> <string>
+38:     E -> true
+39:     E -> false
+
+# L: Vec<Expression>
+40:     L -> G E
+41:     L ->
+
+# G: Vec<Expression>
+42:     G -> G E ,
+43:     G ->
+
+# T (Type): CoolType
+44:     T -> @ TYPE
+45:     T ->
+
+# N (Nested Let): Expression
+46:     N -> , id : TYPE W in E
+47:     N -> , id : TYPE W N
+
+# M: CaseBranch
+48:     M -> M id : TYPE => E ;
+49:     M ->
+
+# B (Block): Vec<Expression>
+50:     B -> B E ;
+51:     B ->
