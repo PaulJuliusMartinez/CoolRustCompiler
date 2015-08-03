@@ -82,7 +82,7 @@ macro_rules! expression_start {
     ($tok:expr, $states:ident, $ids:ident, $exprs:ident) => {
         match *$tok {
             Token::Identifier(ref id) => {
-                $exprs.push(Box::new(ast::Expression::Identifier(id.clone())));
+                $ids.push(id.clone());
                 $states.push(30);
             },
             Token::If => { $states.push(31); },
@@ -177,6 +177,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
         let mut should_consume = true;
         if let Some(&curr) = tokensIter.peek() {
             println!("{:?}, next: {:?}", states, curr);
+            println!("types: {:?}", types);
             match *states.last().unwrap() {
                 0 => {
                     match_single!(curr, Token::Class, states, 4);
@@ -423,6 +424,18 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         }
                     }
                 },
+                31 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                32 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                33 => {
+                    match_identifier!(curr, states, 57, identifiers);
+                },
+                39 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
                 42 => {
                     // 37:     E -> <string>
                     reduce!(states, 37, 1);
@@ -438,6 +451,209 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 39, 1);
                     should_consume = false;
                 },
+                56 => {
+                    after_expression!(curr, states, Token::Then, 73,
+                                      types, no_type, should_consume);
+                },
+                57 => {
+                    match_single!(curr, Token::Colon, states, 58);
+                },
+                58 => {
+                    match_type!(curr, states, 59, types);
+                },
+                59 => {
+                    match *curr {
+                        Token::Arrow => {
+                            states.push(28);
+                        },
+                        Token::In => {
+                            states.push(60);
+                            expressions.push(Box::new(ast::Expression::NoExpr));
+                            should_consume = false;
+                        },
+                        Token::Comma => {
+                            states.push(60);
+                            expressions.push(Box::new(ast::Expression::NoExpr));
+                            should_consume = false;
+                        },
+                        ref e @ _ => {
+                            println!("Expected '<-', 'in' or ',' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                60 => {
+                    match *curr {
+                        Token::In => {
+                            states.push(61);
+                        },
+                        Token::Comma => {
+                            states.push(64);
+                        },
+                        ref e @ _ => {
+                            println!("Expected 'in' or ',' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                61 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                62 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { states.push(51); },
+                        Token::LessThanEqual => { states.push(52); },
+                        Token::Equal => { states.push(53); },
+                        _ => {
+                            let body = expressions.pop().unwrap();
+                            let init = expressions.pop().unwrap();
+                            let var_type = types.pop().unwrap();
+                            let var_name = identifiers.pop().unwrap();
+
+                            expressions.push(Box::new(ast::Expression::Let(
+                                var_name,
+                                var_type,
+                                init,
+                                body
+                            )));
+
+                            // 20:     E -> let id : TYPE W in E
+                            reduce!(states, 20, 7);
+                            should_consume = false;
+                        }
+                    }
+                },
+                63 => {
+                    let body = expressions.pop().unwrap();
+                    let init = expressions.pop().unwrap();
+                    let var_type = types.pop().unwrap();
+                    let var_name = identifiers.pop().unwrap();
+
+                    expressions.push(Box::new(ast::Expression::Let(
+                        var_name,
+                        var_type,
+                        init,
+                        body
+                    )));
+
+                    // 21:     E -> let id : TYPE W N
+                    reduce!(states, 21, 6);
+                    should_consume = false;
+                },
+                64 => {
+                    match_identifier!(curr, states, 65, identifiers);
+                },
+                65 => {
+                    match_single!(curr, Token::Colon, states, 66);
+                },
+                66 => {
+                    match_type!(curr, states, 67, types);
+                },
+                67 => {
+                    match *curr {
+                        Token::Arrow => {
+                            states.push(28);
+                        },
+                        Token::In => {
+                            states.push(68);
+                            expressions.push(Box::new(ast::Expression::NoExpr));
+                            should_consume = false;
+                        },
+                        Token::Comma => {
+                            states.push(68);
+                            expressions.push(Box::new(ast::Expression::NoExpr));
+                            should_consume = false;
+                        },
+                        ref e @ _ => {
+                            println!("Expected '<-', 'in' or ',' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                68 => {
+                    match *curr {
+                        Token::In => {
+                            states.push(152);
+                        },
+                        Token::Comma => {
+                            states.push(64);
+                        },
+                        ref e @ _ => {
+                            println!("Expected 'in' or ',' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                69 => {
+                    after_expression!(curr, states, Token::Loop, 70,
+                                      types, no_type, should_consume);
+                },
+                70 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                71 => {
+                    after_expression!(curr, states, Token::Pool, 72,
+                                      types, no_type, should_consume);
+                },
+                72 => {
+                    let body = expressions.pop().unwrap();
+                    let condition = expressions.pop().unwrap();
+                    expressions.push(Box::new(ast::Expression::While(
+                        condition,
+                        body
+                    )));
+                    // 19:     E -> while E loop E pool
+                    reduce!(states, 19, 5);
+                    should_consume = false;
+                },
+                73 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                74 => {
+                    after_expression!(curr, states, Token::Else, 75,
+                                      types, no_type, should_consume);
+                },
+                75 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                76 => {
+                    after_expression!(curr, states, Token::Fi, 77,
+                                      types, no_type, should_consume);
+                },
+                77 => {
+                    let false_branch = expressions.pop().unwrap();
+                    let true_branch = expressions.pop().unwrap();
+                    let condition = expressions.pop().unwrap();
+                    expressions.push(Box::new(ast::Expression::If(
+                        condition,
+                        true_branch,
+                        false_branch
+                    )));
+                    // 18:     E -> if E then E else E fi
+                    reduce!(states, 18, 7);
+                    should_consume = false;
+                },
+                108 => {
+                    after_expression!(curr, states, Token::RightParen, 109,
+                                      types, no_type, should_consume);
+                },
+                109 => {
+                    // Don't have to pop the expression, we're just going
+                    // to put it right back
+                    // 34:     E -> ( E )
+                    reduce!(states, 34, 3);
+                    should_consume = false;
+                },
                 125 => {
                     match_single!(curr, Token::RightParen, states, 23);
                 },
@@ -445,7 +661,6 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     expression_start!(curr, states, identifiers, expressions);
                 },
                 127 => {
-                    // TODO: FIX THIS
                     after_expression!(curr, states, Token::RightBrace, 128,
                                       types, no_type, should_consume);
                 },
@@ -475,6 +690,60 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     lastClass = None;
                     // 1:      P -> C ;
                     reduce!(states, 0, 2);
+                    should_consume = false;
+                },
+                152 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                153 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { states.push(51); },
+                        Token::LessThanEqual => { states.push(52); },
+                        Token::Equal => { states.push(53); },
+                        _ => {
+                            let body = expressions.pop().unwrap();
+                            let init = expressions.pop().unwrap();
+                            let var_type = types.pop().unwrap();
+                            let var_name = identifiers.pop().unwrap();
+
+                            expressions.push(Box::new(ast::Expression::Let(
+                                var_name,
+                                var_type,
+                                init,
+                                body
+                            )));
+
+                            // 47:     N -> , id : TYPE W in E
+                            reduce!(states, 47, 7);
+                            should_consume = false;
+                        }
+                    }
+                },
+                154 => {
+                    let body = expressions.pop().unwrap();
+                    let init = expressions.pop().unwrap();
+                    let var_type = types.pop().unwrap();
+                    let var_name = identifiers.pop().unwrap();
+
+                    expressions.push(Box::new(ast::Expression::Let(
+                        var_name,
+                        var_type,
+                        init,
+                        body
+                    )));
+
+                    // 48:     N -> , id : TYPE W N
+                    reduce!(states, 48, 6);
                     should_consume = false;
                 },
                 160 => {
@@ -546,8 +815,58 @@ fn goto(state: i32, rule: i32) -> i32 {
         28 => {
             on_expression_goto!(state, rule, 29)
         },
+        31 => {
+            on_expression_goto!(state, rule, 56)
+        },
+        32 => {
+            on_expression_goto!(state, rule, 69)
+        },
+        39 => {
+            on_expression_goto!(state, rule, 108)
+        },
+        59 => {
+            match rule {
+                13 => 60,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        60 => {
+            match rule {
+                47 => 63,
+                48 => 63,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        61 => {
+            on_expression_goto!(state, rule, 62)
+        },
+        67 => {
+            match rule {
+                13 => 68,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        68 => {
+            match rule {
+                47 => 154,
+                48 => 154,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        70 => {
+            on_expression_goto!(state, rule, 71)
+        },
+        73 => {
+            on_expression_goto!(state, rule, 74)
+        },
+        75 => {
+            on_expression_goto!(state, rule, 76)
+        },
         126 => {
             on_expression_goto!(state, rule, 127)
+        },
+        152 => {
+            on_expression_goto!(state, rule, 153)
         },
         _ => {
             panic!("Haven't implemented goto for state {} yet", state);

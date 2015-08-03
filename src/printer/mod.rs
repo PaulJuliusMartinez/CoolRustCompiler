@@ -25,9 +25,11 @@ impl Printable for Class {
         println(tabs, "_class");
         println(tabs + 1, &self.name);
         println(tabs + 1, &self.parent);
+        println(tabs + 1, "(");
         for feature in &self.features {
             feature.pretty_print(tabs + 1);
         }
+        println(tabs + 1, ")");
     }
 }
 
@@ -103,6 +105,7 @@ impl Printable for Expression {
             },
             Expression::Let(ref var, ref cool_type, ref init, ref body) => {
                 println(tabs, "_let");
+                println(tabs + 1, var);
                 println(tabs + 1, cool_type);
                 init.pretty_print(tabs + 1);
                 body.pretty_print(tabs + 1);
