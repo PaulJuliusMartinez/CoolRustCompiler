@@ -1,6 +1,5 @@
 use std::iter::Peekable;
 use std::rc::Rc;
-use std::ascii::AsciiExt;
 use std::str::Chars;
 
 #[derive(Debug)]
@@ -66,14 +65,14 @@ enum LexerState {
 
 pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
     let mut state = LexerState::Start;
-    let mut curToken = String::with_capacity(1024);
+    let mut cur_token = String::with_capacity(1024);
     let mut line_no = 0;
-    let mut useChar;
-    let mut commentDepth = 0;
+    let mut use_char;
+    let mut comment_depth = 0;
     let mut tokens: Vec<Token> = Vec::new();
 
     loop {
-        useChar = true;
+        use_char = true;
         match chars.peek() {
             Some(ch) => {
                 match state {
@@ -81,11 +80,11 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                         match *ch {
                             'a' ... 'z' | 'A' ... 'Z' => {
                                 state = LexerState::Identifier;
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             },
                             '0' ... '9' => {
                                 state = LexerState::Number;
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             },
                             '\n' => {
                                 line_no += 1;
@@ -127,7 +126,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                     LexerState::Identifier => {
                         match *ch {
                             'a' ... 'z' | 'A' ... 'Z' | '0' ... '9' | '_' => {
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             },
                             '\n' => {
                                 state = LexerState::Start;
@@ -156,15 +155,15 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             }
                         }
                         if state != LexerState::Identifier {
-                            tokens.push(stringToToken(curToken));
-                            curToken = String::new();
-                            useChar = false;
+                            tokens.push(string_to_token(cur_token));
+                            cur_token = String::new();
+                            use_char = false;
                         }
                     },
                     LexerState::Number => {
                         match *ch {
                             '0' ... '9' => {
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             },
                             'a' ... 'z' | 'A' ... 'Z' | '_' => {
                                 state = LexerState::Start;
@@ -195,7 +194,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             }
                         }
                         if state != LexerState::Number {
-                            let value = curToken.parse::<i32>();
+                            let value = cur_token.parse::<i32>();
                             match value {
                                 Ok(val) => {
                                     tokens.push(Token::IntegerLiteral(val));
@@ -205,8 +204,8 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                     return tokens;
                                 }
                             }
-                            curToken = String::new();
-                            useChar = false;
+                            cur_token = String::new();
+                            use_char = false;
                         }
                     },
                     LexerState::LessThan => {
@@ -222,7 +221,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             },
                             _ => {
                                 tokens.push(Token::LessThan);
-                                useChar = false;
+                                use_char = false;
                             }
                         }
                         state = LexerState::Start;
@@ -235,7 +234,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             _ => {
                                 tokens.push(Token::Minus);
                                 state = LexerState::Start;
-                                useChar = false;
+                                use_char = false;
                             }
                         }
                     },
@@ -253,14 +252,14 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                     LexerState::CommentOrParens => {
                         match *ch {
                             '*' => {
-                                commentDepth += 1;
+                                comment_depth += 1;
                                 state = LexerState::MultiLineComment;
                             },
                             _ => {
-                                if commentDepth == 0 {
+                                if comment_depth == 0 {
                                     tokens.push(Token::LeftParen);
                                     state = LexerState::Start;
-                                    useChar = false;
+                                    use_char = false;
                                 } else {
                                     state = LexerState::MultiLineComment;
                                 }
@@ -279,8 +278,8 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                     LexerState::MultiLineCommentEnd => {
                         match *ch {
                             ')' => {
-                                commentDepth -= 1;
-                                if commentDepth == 0 {
+                                comment_depth -= 1;
+                                if comment_depth == 0 {
                                     state = LexerState::Start;
                                 } else {
                                     state = LexerState::MultiLineComment;
@@ -300,8 +299,8 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                 state = LexerState::StringEscape;
                             },
                             '"' => {
-                                tokens.push(Token::StringLiteral(Rc::new(curToken)));
-                                curToken = String::new();
+                                tokens.push(Token::StringLiteral(Rc::new(cur_token)));
+                                cur_token = String::new();
                                 state = LexerState::Start;
                             },
                             '\n' => {
@@ -309,22 +308,22 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                 return tokens;
                             },
                             _ => {
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             }
                         }
                     },
                     LexerState::StringEscape => {
                         match *ch {
                             't' => {
-                                curToken.push('\t');
+                                cur_token.push('\t');
                             },
                             'n' => {
-                                curToken.push('\n');
+                                cur_token.push('\n');
                             },
                             '\n' => {
                             },
                             _ => {
-                                curToken.push(*ch);
+                                cur_token.push(*ch);
                             }
                         }
                         state = LexerState::String;
@@ -340,7 +339,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                 break;
             }
         }
-        if useChar {
+        if use_char {
             let _ = chars.next();
         }
     }
@@ -348,7 +347,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
     return tokens;
 }
 
-fn stringToToken(chars: String) -> Token {
+fn string_to_token(chars: String) -> Token {
     let lowercase = chars.chars().nth(0).unwrap().is_lowercase();
     let copy = chars.clone();
     match chars.as_ref() {
@@ -383,7 +382,7 @@ fn stringToToken(chars: String) -> Token {
                 Token::Type(Rc::new(copy))
             }
         },
-        other => {
+        _ => {
             if lowercase {
                 Token::Identifier(Rc::new(copy))
             } else {

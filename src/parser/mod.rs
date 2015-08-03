@@ -69,6 +69,7 @@ macro_rules! match_single_capture {
 // in the goto table
 macro_rules! reduce {
     ($states:expr, $rule_num:expr, $rule_len:expr) => {{
+        println!("Reducing using rule #{}", $rule_num);
         for _ in 0 .. $rule_len {
             $states.pop();
         }
@@ -157,15 +158,15 @@ macro_rules! on_expression_goto {
 }
 
 pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
-    let mut classLists: Vec<Box<ast::Class>> = Vec::new();
-    let mut lastClass: Option<Box<ast::Class>> = None;
+    let mut class_lists: Vec<Box<ast::Class>> = Vec::new();
+    let mut last_class: Option<Box<ast::Class>> = None;
     let mut types: Vec<ast::CoolType> = Vec::new();
     let mut features: Vec<Box<ast::Feature>> = Vec::new();
     let mut formals: Vec<ast::Formal> = Vec::new();
     let mut identifiers: Vec<ast::Symbol> = Vec::new();
     let mut expressions: Vec<Box<ast::Expression>> = Vec::new();
-    let mut expressionLists: Vec<Vec<Box<ast::Expression>>> = Vec::new();
-    let mut caseBranches: Vec<ast::CaseBranch> = Vec::new();
+    let mut expression_lists: Vec<Vec<Box<ast::Expression>>> = Vec::new();
+    let mut case_branches: Vec<ast::CaseBranch> = Vec::new();
     let mut states: Vec<i32> = vec![0];
 
     // Constants
@@ -177,7 +178,6 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
         let mut should_consume = true;
         if let Some(&curr) = tokensIter.peek() {
             println!("{:?}, next: {:?}", states, curr);
-            println!("types: {:?}", types);
             match *states.last().unwrap() {
                 0 => {
                     match_single!(curr, Token::Class, states, 4);
@@ -201,8 +201,8 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     match_single!(curr, Token::Semicolon, states, 3);
                 },
                 3 => {
-                    classLists.push(lastClass.unwrap());
-                    lastClass = None;
+                    class_lists.push(last_class.unwrap());
+                    last_class = None;
                     // 0:      P -> P C ;
                     reduce!(states, 0, 3);
                     should_consume = false;
@@ -270,9 +270,9 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 11 => {
                     let inheritsFrom = types.pop().unwrap();
-                    let className = types.pop().unwrap();
-                    lastClass = Some(Box::new(ast::Class {
-                        name: className,
+                    let class_name = types.pop().unwrap();
+                    last_class = Some(Box::new(ast::Class {
+                        name: class_name,
                         parent: inheritsFrom,
                         features: features
                     }));
@@ -425,12 +425,22 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     }
                 },
                 30 => {
-                    expressions.push(Box::new(ast::Expression::Identifier(
-                        identifiers.pop().unwrap()
-                    )));
-                    // 36:     E -> <id>
-                    reduce!(states, 36, 1);
-                    should_consume = false;
+                    match *curr {
+                        Token::Arrow => {
+                            states.push(54);
+                        },
+                        Token::LeftParen => {
+                            states.push(55);
+                        },
+                        _ => {
+                            expressions.push(Box::new(ast::Expression::Identifier(
+                                identifiers.pop().unwrap()
+                            )));
+                            // 36:     E -> <id>
+                            reduce!(states, 36, 1);
+                            should_consume = false;
+                        }
+                    }
                 },
                 31 => {
                     expression_start!(curr, states, identifiers, expressions);
@@ -440,6 +450,9 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 33 => {
                     match_identifier!(curr, states, 57, identifiers);
+                },
+                35 => {
+                    match_type!(curr, states, 94, types);
                 },
                 36 => {
                     expression_start!(curr, states, identifiers, expressions);
@@ -486,6 +499,9 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     // 39:     E -> true
                     reduce!(states, 39, 1);
                     should_consume = false;
+                },
+                54 => {
+                    expression_start!(curr, states, identifiers, expressions);
                 },
                 56 => {
                     after_expression!(curr, states, Token::Then, 73,
@@ -679,6 +695,42 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 18, 7);
                     should_consume = false;
                 },
+                94 => {
+                    expressions.push(Box::new(ast::Expression::New(
+                        types.pop().unwrap()
+                    )));
+                    // 23:     E -> new TYPE
+                    reduce!(states, 23, 2);
+                    should_consume = false;
+                },
+                95 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { states.push(51); },
+                        Token::LessThanEqual => { states.push(52); },
+                        Token::Equal => { states.push(53); },
+                        _ => {
+                            let expr = expressions.pop().unwrap();
+                            let var_name = identifiers.pop().unwrap();
+                            expressions.push(Box::new(ast::Expression::Assign(
+                                var_name,
+                                expr
+                            )));
+                            // 15:     E -> id <- E
+                            reduce!(states, 15, 3);
+                            should_consume = false;
+                        }
+                    }
+                },
                 107 => {
                     match *curr {
                         Token::Dot => {
@@ -767,8 +819,8 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     match_single!(curr, Token::Semicolon, states, 151);
                 },
                 151 => {
-                    classLists.push(lastClass.unwrap());
-                    lastClass = None;
+                    class_lists.push(last_class.unwrap());
+                    last_class = None;
                     // 1:      P -> C ;
                     reduce!(states, 0, 2);
                     should_consume = false;
@@ -841,7 +893,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
     }
 
     return Some(ast::Program {
-        classes: classLists
+        classes: class_lists
     });
 }
 
@@ -913,6 +965,9 @@ fn goto(state: i32, rule: i32) -> i32 {
         },
         40 => {
             on_expression_goto!(state, rule, 41)
+        },
+        54 => {
+            on_expression_goto!(state, rule, 95)
         },
         59 => {
             match rule {
