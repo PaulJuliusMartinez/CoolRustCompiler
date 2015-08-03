@@ -424,6 +424,14 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         }
                     }
                 },
+                30 => {
+                    expressions.push(Box::new(ast::Expression::Identifier(
+                        identifiers.pop().unwrap()
+                    )));
+                    // 36:     E -> <id>
+                    reduce!(states, 36, 1);
+                    should_consume = false;
+                },
                 31 => {
                     expression_start!(curr, states, identifiers, expressions);
                 },
@@ -433,8 +441,36 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 33 => {
                     match_identifier!(curr, states, 57, identifiers);
                 },
+                36 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                37 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
+                40 => {
+                    expression_start!(curr, states, identifiers, expressions);
+                },
                 39 => {
                     expression_start!(curr, states, identifiers, expressions);
+                },
+                41 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        _ => {
+                            let expr = expressions.pop().unwrap();
+                            expressions.push(Box::new(ast::Expression::Negation(
+                                expr
+                            )));
+                            // 33:     E -> ~ E
+                            reduce!(states, 33, 2);
+                            should_consume = false;
+                        }
+                    }
                 },
                 42 => {
                     // 37:     E -> <string>
@@ -643,6 +679,25 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 18, 7);
                     should_consume = false;
                 },
+                107 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        _ => {
+                            let expr = expressions.pop().unwrap();
+                            expressions.push(Box::new(ast::Expression::IsVoid(
+                                expr
+                            )));
+                            // 24:     E -> isvoid E
+                            reduce!(states, 24, 2);
+                            should_consume = false;
+                        }
+                    }
+                },
                 108 => {
                     after_expression!(curr, states, Token::RightParen, 109,
                                       types, no_type, should_consume);
@@ -653,6 +708,32 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     // 34:     E -> ( E )
                     reduce!(states, 34, 3);
                     should_consume = false;
+                },
+                116 => {
+                    match *curr {
+                        Token::Dot => {
+                            types.push(no_type.clone());
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => { states.push(46); },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { states.push(51); },
+                        Token::LessThanEqual => { states.push(52); },
+                        Token::Equal => { states.push(53); },
+                        _ => {
+                            let expr = expressions.pop().unwrap();
+                            expressions.push(Box::new(ast::Expression::Not(
+                                expr
+                            )));
+                            // 25:     E -> not E
+                            reduce!(states, 25, 2);
+                            should_consume = false;
+                        }
+                    }
                 },
                 125 => {
                     match_single!(curr, Token::RightParen, states, 23);
@@ -821,8 +902,17 @@ fn goto(state: i32, rule: i32) -> i32 {
         32 => {
             on_expression_goto!(state, rule, 69)
         },
+        36 => {
+            on_expression_goto!(state, rule, 107)
+        },
+        37 => {
+            on_expression_goto!(state, rule, 116)
+        },
         39 => {
             on_expression_goto!(state, rule, 108)
+        },
+        40 => {
+            on_expression_goto!(state, rule, 41)
         },
         59 => {
             match rule {
