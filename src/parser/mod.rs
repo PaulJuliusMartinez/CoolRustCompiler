@@ -80,7 +80,7 @@ macro_rules! reduce {
 
 // Matches the start of an expression
 macro_rules! expression_start {
-    ($tok:expr, $states:ident, $ids:ident, $exprs:ident) => {
+    ($tok:expr, $states:ident, $ids:ident, $exprs:ident, $expr_lists:ident) => {
         match *$tok {
             Token::Identifier(ref id) => {
                 $ids.push(id.clone());
@@ -93,7 +93,10 @@ macro_rules! expression_start {
             Token::New => { $states.push(35); },
             Token::Isvoid => { $states.push(36); },
             Token::Not => { $states.push(37); },
-            Token::LeftBrace => { $states.push(38); },
+            Token::LeftBrace => {
+                $expr_lists.push(Vec::new());
+                $states.push(38);
+            },
             Token::LeftParen => { $states.push(39); },
             Token::Tilde => { $states.push(40); },
             Token::StringLiteral(ref string) => {
@@ -122,15 +125,18 @@ macro_rules! expression_start {
 
 // Matches after reducing an expression
 macro_rules! after_expression {
-    ($tok:expr, $states:ident, $expected:pat, $new_state:expr, $types:ident, $no_type:ident, $use_token:ident) => {{
+    ($tok:expr, $states:ident, $expected:pat, $new_state:expr, $types:ident, $no_type:ident, $use_token:ident, $isStatic:ident) => {{
         match *$tok {
             $expected => { $states.push($new_state); },
             Token::Dot => {
-                $types.push($no_type.clone());
+                $isStatic.push(false);
                 $states.push(101);
                 $use_token = false;
             },
-            Token::At => { $states.push(46); },
+            Token::At => {
+                $isStatic.push(true);
+                $states.push(46);
+            },
             Token::Plus => { $states.push(47); },
             Token::Minus => { $states.push(48); },
             Token::Times => { $states.push(49); },
@@ -157,6 +163,15 @@ macro_rules! on_expression_goto {
     }}
 }
 
+macro_rules! after_static_goto {
+    ($state:ident, $rule:ident) => {{
+        match $rule {
+            45 => 45,
+            _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", $state, $rule)
+        }
+    }}
+}
+
 pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
     let mut class_lists: Vec<Box<ast::Class>> = Vec::new();
     let mut last_class: Option<Box<ast::Class>> = None;
@@ -168,15 +183,17 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
     let mut expression_lists: Vec<Vec<Box<ast::Expression>>> = Vec::new();
     let mut case_branches: Vec<ast::CaseBranch> = Vec::new();
     let mut states: Vec<i32> = vec![0];
+    let mut is_statics: Vec<bool> = Vec::new();
 
     // Constants
     let object = Rc::new("Object".to_string());
     let no_type = Rc::new("_no_type".to_string());
+    let self_obj = Rc::new("self".to_string());
 
-    let mut tokensIter = tokens.iter().peekable();
+    let mut tokens_iter = tokens.iter().peekable();
     loop {
         let mut should_consume = true;
-        if let Some(&curr) = tokensIter.peek() {
+        if let Some(&curr) = tokens_iter.peek() {
             println!("{:?}, next: {:?}", states, curr);
             match *states.last().unwrap() {
                 0 => {
@@ -269,11 +286,11 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     }
                 },
                 11 => {
-                    let inheritsFrom = types.pop().unwrap();
+                    let inherits_from = types.pop().unwrap();
                     let class_name = types.pop().unwrap();
                     last_class = Some(Box::new(ast::Class {
                         name: class_name,
-                        parent: inheritsFrom,
+                        parent: inherits_from,
                         features: features
                     }));
                     features = Vec::new();
@@ -396,16 +413,19 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     match_single!(curr, Token::LeftBrace, states, 126);
                 },
                 28 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 29 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
-                            states.push(101);
+                            is_statics.push(false);
+                            states.push(45);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         Token::Plus => { states.push(47); },
                         Token::Minus => { states.push(48); },
                         Token::Times => { states.push(49); },
@@ -431,6 +451,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         },
                         Token::LeftParen => {
                             states.push(55);
+                            expression_lists.push(Vec::new());
                         },
                         _ => {
                             expressions.push(Box::new(ast::Expression::Identifier(
@@ -443,10 +464,10 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     }
                 },
                 31 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 32 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 33 => {
                     match_identifier!(curr, states, 57, identifiers);
@@ -455,25 +476,32 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     match_type!(curr, states, 94, types);
                 },
                 36 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 37 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
+                38 => {
+                    states.push(110);
+                    should_consume = false;
                 },
                 40 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 39 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 41 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         _ => {
                             let expr = expressions.pop().unwrap();
                             expressions.push(Box::new(ast::Expression::Negation(
@@ -500,12 +528,29 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 39, 1);
                     should_consume = false;
                 },
+                45 => {
+                    match_single!(curr, Token::Dot, states, 101);
+                },
+                46 => {
+                    match_type!(curr, states, 124, types);
+                },
                 54 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
+                55 => {
+                    match *curr {
+                        Token::RightParen => {
+                            states.push(104);
+                        },
+                        _ => {
+                            states.push(96);
+                        }
+                    }
+                    should_consume = false;
                 },
                 56 => {
                     after_expression!(curr, states, Token::Then, 73,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 57 => {
                     match_single!(curr, Token::Colon, states, 58);
@@ -549,16 +594,19 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     }
                 },
                 61 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 62 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         Token::Plus => { states.push(47); },
                         Token::Minus => { states.push(48); },
                         Token::Times => { states.push(49); },
@@ -648,14 +696,14 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 69 => {
                     after_expression!(curr, states, Token::Loop, 70,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 70 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 71 => {
                     after_expression!(curr, states, Token::Pool, 72,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 72 => {
                     let body = expressions.pop().unwrap();
@@ -669,18 +717,18 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     should_consume = false;
                 },
                 73 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 74 => {
                     after_expression!(curr, states, Token::Else, 75,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 75 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 76 => {
                     after_expression!(curr, states, Token::Fi, 77,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 77 => {
                     let false_branch = expressions.pop().unwrap();
@@ -706,11 +754,14 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 95 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         Token::Plus => { states.push(47); },
                         Token::Minus => { states.push(48); },
                         Token::Times => { states.push(49); },
@@ -731,14 +782,118 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         }
                     }
                 },
-                107 => {
+                96 => {
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
+                97 => {
                     match *curr {
+                        Token::RightParen => {
+                            expression_lists.last_mut().unwrap().push(
+                                expressions.pop().unwrap()
+                            );
+                            // 41:     L -> G E
+                            reduce!(states, 41, 2);
+                            should_consume = false;
+                        },
+                        Token::Comma => {
+                            states.push(98);
+                        },
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { states.push(51); },
+                        Token::LessThanEqual => { states.push(52); },
+                        Token::Equal => { states.push(53); },
+                        ref e @ _ => {
+                            println!("Errored in state {}, got {:?}", states.last().unwrap(), e);
+                            return None;
+                        }
+                    }
+                },
+                98 => {
+                    expression_lists.last_mut().unwrap().push(
+                        expressions.pop().unwrap()
+                    );
+                    // 43:     G -> G E ,
+                    reduce!(states, 43, 3);
+                    should_consume = false;
+                },
+                101 => {
+                    match_identifier!(curr, states, 102, identifiers);
+                },
+                102 => {
+                    match *curr {
+                        Token::LeftParen => {
+                            expression_lists.push(Vec::new());
+                            states.push(103);
+                        },
+                        ref e @ _ => {
+                            println!("In state 102, expected '(' but found {:?}", e);
+                            return None;
+                        }
+                    }
+                },
+                103 => {
+                    match *curr {
+                        Token::RightParen => {
+                            states.push(105);
+                        },
+                        _ => {
+                            states.push(96);
+                        }
+                    }
+                    should_consume = false;
+                },
+                104 => {
+                    match_single!(curr, Token::RightParen, states, 161);
+                },
+                105 => {
+                    match_single!(curr, Token::RightParen, states, 106);
+                },
+                106 => {
+                    let args = expression_lists.pop().unwrap();
+                    let method_name = identifiers.pop().unwrap();
+                    let obj = expressions.pop().unwrap();
+                    if is_statics.pop().unwrap() {
+                        let static_type = types.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::StaticDispatch(
+                            obj,
+                            static_type,
+                            method_name,
+                            args
+                        )));
+                    } else {
+                        expressions.push(Box::new(ast::Expression::Dispatch(
+                            obj,
+                            method_name,
+                            args
+                        )));
+                    }
+                    // 17:     E -> E T . id ( L )
+                    reduce!(states, 17, 7);
+                    should_consume = false;
+                },
+                107 => {
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(101);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         _ => {
                             let expr = expressions.pop().unwrap();
                             expressions.push(Box::new(ast::Expression::IsVoid(
@@ -752,7 +907,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 108 => {
                     after_expression!(curr, states, Token::RightParen, 109,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 109 => {
                     // Don't have to pop the expression, we're just going
@@ -761,14 +916,50 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 34, 3);
                     should_consume = false;
                 },
+                110 => {
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
+                111 => {
+                    after_expression!(curr, states, Token::Semicolon, 112,
+                                      types, no_type, should_consume, is_statics);
+                },
+                112 => {
+                    match *curr {
+                        Token::RightBrace => {
+                            states.push(113);
+                        },
+                        _ => {
+                            expression_lists.last_mut().unwrap().push(
+                                expressions.pop().unwrap()
+                            );
+                            // 51:     B -> B E ;
+                            reduce!(states, 51, 3);
+                            should_consume = false;
+                        }
+                    }
+                },
+                113 => {
+                    let mut body = expression_lists.pop().unwrap();
+                    body.push(expressions.pop().unwrap());
+                    expressions.push(Box::new(ast::Expression::Block(
+                        body
+                    )));
+
+                    // 35:     E -> { B E ; }
+                    reduce!(states, 35, 5);
+                    should_consume = false;
+                }
                 116 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         Token::Plus => { states.push(47); },
                         Token::Minus => { states.push(48); },
                         Token::Times => { states.push(49); },
@@ -787,15 +978,20 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         }
                     }
                 },
+                124 => {
+                    // 45:     T -> @ TYPE
+                    reduce!(states, 45, 2);
+                    should_consume = false;
+                },
                 125 => {
                     match_single!(curr, Token::RightParen, states, 23);
                 },
                 126 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 127 => {
                     after_expression!(curr, states, Token::RightBrace, 128,
-                                      types, no_type, should_consume);
+                                      types, no_type, should_consume, is_statics);
                 },
                 128 => {
                     match_single!(curr, Token::Semicolon, states, 129);
@@ -826,16 +1022,19 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     should_consume = false;
                 },
                 152 => {
-                    expression_start!(curr, states, identifiers, expressions);
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 153 => {
                     match *curr {
                         Token::Dot => {
-                            types.push(no_type.clone());
+                            is_statics.push(false);
                             states.push(101);
                             should_consume = false;
                         },
-                        Token::At => { states.push(46); },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
                         Token::Plus => { states.push(47); },
                         Token::Minus => { states.push(48); },
                         Token::Times => { states.push(49); },
@@ -884,11 +1083,21 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     reduce!(states, 40, 1);
                     should_consume = false;
                 },
+                161 => {
+                    expressions.push(Box::new(ast::Expression::Dispatch(
+                        Box::new(ast::Expression::Identifier(self_obj.clone())),
+                        identifiers.pop().unwrap(),
+                        expression_lists.pop().unwrap()
+                    )));
+                    // 16:     E -> id ( L )
+                    reduce!(states, 16, 4);
+                    should_consume = false;
+                },
                 _ => { println!("Haven't implemented state {} yet", states.last().unwrap()); }
             }
         }
         if should_consume {
-            let _ = tokensIter.next();
+            let _ = tokens_iter.next();
         }
     }
 
@@ -948,6 +1157,9 @@ fn goto(state: i32, rule: i32) -> i32 {
         28 => {
             on_expression_goto!(state, rule, 29)
         },
+        29 => {
+            after_static_goto!(state, rule)
+        },
         31 => {
             on_expression_goto!(state, rule, 56)
         },
@@ -960,14 +1172,33 @@ fn goto(state: i32, rule: i32) -> i32 {
         37 => {
             on_expression_goto!(state, rule, 116)
         },
+        38 => {
+            match rule {
+                51 => 110,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
         39 => {
             on_expression_goto!(state, rule, 108)
         },
         40 => {
             on_expression_goto!(state, rule, 41)
         },
+        41 => {
+            after_static_goto!(state, rule)
+        },
         54 => {
             on_expression_goto!(state, rule, 95)
+        },
+        55 => {
+            match rule {
+                41 => 104,
+                43 => 96,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        56 => {
+            after_static_goto!(state, rule)
         },
         59 => {
             match rule {
@@ -985,6 +1216,9 @@ fn goto(state: i32, rule: i32) -> i32 {
         61 => {
             on_expression_goto!(state, rule, 62)
         },
+        62 => {
+            after_static_goto!(state, rule)
+        },
         67 => {
             match rule {
                 13 => 68,
@@ -998,20 +1232,69 @@ fn goto(state: i32, rule: i32) -> i32 {
                 _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
             }
         },
+        69 => {
+            after_static_goto!(state, rule)
+        },
         70 => {
             on_expression_goto!(state, rule, 71)
+        },
+        71 => {
+            after_static_goto!(state, rule)
         },
         73 => {
             on_expression_goto!(state, rule, 74)
         },
+        74 => {
+            after_static_goto!(state, rule)
+        },
         75 => {
             on_expression_goto!(state, rule, 76)
+        },
+        76 => {
+            after_static_goto!(state, rule)
+        },
+        95 => {
+            after_static_goto!(state, rule)
+        },
+        96 => {
+            on_expression_goto!(state, rule, 97)
+        },
+        97 => {
+            after_static_goto!(state, rule)
+        },
+        103 => {
+            match rule {
+                41 => 105,
+                43 => 96,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        107 => {
+            after_static_goto!(state, rule)
+        },
+        108 => {
+            after_static_goto!(state, rule)
+        },
+        110 => {
+            on_expression_goto!(state, rule, 111)
+        },
+        111 => {
+            after_static_goto!(state, rule)
+        },
+        116 => {
+            after_static_goto!(state, rule)
         },
         126 => {
             on_expression_goto!(state, rule, 127)
         },
+        127 => {
+            after_static_goto!(state, rule)
+        },
         152 => {
             on_expression_goto!(state, rule, 153)
+        },
+        153 => {
+            after_static_goto!(state, rule)
         },
         _ => {
             panic!("Haven't implemented goto for state {} yet", state);
