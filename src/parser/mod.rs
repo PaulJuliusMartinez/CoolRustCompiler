@@ -534,6 +534,10 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 46 => {
                     match_type!(curr, states, 124, types);
                 },
+                // Binary expressions!
+                47 ... 53 => {
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
                 54 => {
                     expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
@@ -978,6 +982,253 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                         }
                     }
                 },
+                117 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { should_reduce = true },
+                        Token::Minus => { should_reduce = true },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { should_reduce = true },
+                        Token::LessThanEqual => { should_reduce = true },
+                        Token::Equal => { should_reduce = true },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::Plus,
+                            left,
+                            right
+                        )));
+                        // 26:     E -> E + E
+                        reduce!(states, 26, 3);
+                        should_consume = false;
+                    }
+                },
+                118 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { should_reduce = true },
+                        Token::Minus => { should_reduce = true },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan => { should_reduce = true },
+                        Token::LessThanEqual => { should_reduce = true },
+                        Token::Equal => { should_reduce = true },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::Minus,
+                            left,
+                            right
+                        )));
+                        // 27:     E -> E - E
+                        reduce!(states, 27, 3);
+                        should_consume = false;
+                    }
+                },
+                119 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { should_reduce = true },
+                        Token::Minus => { should_reduce = true },
+                        Token::Times => { should_reduce = true },
+                        Token::Divide => { should_reduce = true },
+                        Token::LessThan => { should_reduce = true },
+                        Token::LessThanEqual => { should_reduce = true },
+                        Token::Equal => { should_reduce = true },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::Mult,
+                            left,
+                            right
+                        )));
+                        // 28:     E -> E * E
+                        reduce!(states, 28, 3);
+                        should_consume = false;
+                    }
+                },
+                120 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { should_reduce = true },
+                        Token::Minus => { should_reduce = true },
+                        Token::Times => { should_reduce = true },
+                        Token::Divide => { should_reduce = true },
+                        Token::LessThan => { should_reduce = true },
+                        Token::LessThanEqual => { should_reduce = true },
+                        Token::Equal => { should_reduce = true },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::Divide,
+                            left,
+                            right
+                        )));
+                        // 29:     E -> E / E
+                        reduce!(states, 29, 3);
+                        should_consume = false;
+                    }
+                },
+                121 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan |
+                        Token::LessThanEqual |
+                        Token::Equal => {
+                            println!("Errored in state {:?}, the binary operators do not associate.", states.last().unwrap());
+                            return None;
+                        },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::LessThan,
+                            left,
+                            right
+                        )));
+                        // 30:     E -> E < E
+                        reduce!(states, 30, 3);
+                        should_consume = false;
+                    }
+                },
+                122 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan |
+                        Token::LessThanEqual |
+                        Token::Equal => {
+                            println!("Errored in state {:?}, the binary operators do not associate.", states.last().unwrap());
+                            return None;
+                        },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::LessThanEqual,
+                            left,
+                            right
+                        )));
+                        // 31:     E -> E <= E
+                        reduce!(states, 31, 3);
+                        should_consume = false;
+                    }
+                },
+                123 => {
+                    let mut should_reduce = false;
+                    match *curr {
+                        Token::Dot => {
+                            is_statics.push(false);
+                            states.push(45);
+                            should_consume = false;
+                        },
+                        Token::At => {
+                            is_statics.push(true);
+                            states.push(46);
+                        },
+                        Token::Plus => { states.push(47); },
+                        Token::Minus => { states.push(48); },
+                        Token::Times => { states.push(49); },
+                        Token::Divide => { states.push(50); },
+                        Token::LessThan |
+                        Token::LessThanEqual |
+                        Token::Equal => {
+                            println!("Errored in state {:?}, the binary operators do not associate.", states.last().unwrap());
+                            return None;
+                        },
+                        _ => { should_reduce = true; }
+                    }
+                    if should_reduce {
+                        let right = expressions.pop().unwrap();
+                        let left = expressions.pop().unwrap();
+                        expressions.push(Box::new(ast::Expression::BinaryOperation(
+                            ast::BinOp::Equal,
+                            left,
+                            right
+                        )));
+                        // 32:     E -> E = E
+                        reduce!(states, 32, 3);
+                        should_consume = false;
+                    }
+                },
                 124 => {
                     // 45:     T -> @ TYPE
                     reduce!(states, 45, 2);
@@ -1187,6 +1438,27 @@ fn goto(state: i32, rule: i32) -> i32 {
         41 => {
             after_static_goto!(state, rule)
         },
+        47 => {
+            on_expression_goto!(state, rule, 117)
+        },
+        48 => {
+            on_expression_goto!(state, rule, 118)
+        },
+        49 => {
+            on_expression_goto!(state, rule, 119)
+        },
+        50 => {
+            on_expression_goto!(state, rule, 120)
+        },
+        51 => {
+            on_expression_goto!(state, rule, 121)
+        },
+        52 => {
+            on_expression_goto!(state, rule, 122)
+        },
+        53 => {
+            on_expression_goto!(state, rule, 123)
+        },
         54 => {
             on_expression_goto!(state, rule, 95)
         },
@@ -1282,6 +1554,27 @@ fn goto(state: i32, rule: i32) -> i32 {
             after_static_goto!(state, rule)
         },
         116 => {
+            after_static_goto!(state, rule)
+        },
+        117 => {
+            after_static_goto!(state, rule)
+        },
+        118 => {
+            after_static_goto!(state, rule)
+        },
+        119 => {
+            after_static_goto!(state, rule)
+        },
+        120 => {
+            after_static_goto!(state, rule)
+        },
+        121 => {
+            after_static_goto!(state, rule)
+        },
+        122 => {
+            after_static_goto!(state, rule)
+        },
+        123 => {
             after_static_goto!(state, rule)
         },
         126 => {

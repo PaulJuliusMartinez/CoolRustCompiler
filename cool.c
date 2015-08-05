@@ -1,13 +1,8 @@
 class A inherits B {
-    varX : B <- 2.funName();
-    varY : B <- 2@Type2.funName(3);
-    varZ : B <- 2.funName(7, 4, {1; 3;});
-    var7 : A <- {
-               if 2@Type.fn() then 3 else 4 fi;
-           };
-    var1 : TypeB;
-    var2 : TypeB;
-    var2 : TypeB;
+result: T <- 5 + 3 - 8.foo() / 4@F.bar() + 3 * 9 * ~9;
+foo: T <- not not not 8 <= 3;
+foo: T <- not isvoid not 7 < 2;
+foo: T <- isvoid ~8 * 45 = ~result - 9 * 3 / 1;
 };
 
 class C inherits D {};

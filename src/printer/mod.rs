@@ -84,8 +84,8 @@ impl Printable for Expression {
             Expression::StaticDispatch(ref obj, ref cool_type, ref name, ref args) => {
                 println(tabs, "_static_dispatch");
                 obj.pretty_print(tabs + 1);
-                println(tabs + 1, name);
                 println(tabs + 1, cool_type);
+                println(tabs + 1, name);
                 println(tabs + 1, "(");
                 for arg in args {
                     arg.pretty_print(tabs + 1);
