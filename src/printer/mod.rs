@@ -239,7 +239,8 @@ impl Printable for Token {
             Token::LessThan => println!("lessThan"),
             Token::Equal => println!("equal"),
             Token::LessThanEqual => println!("lessThanEqual"),
-            Token::Arrow => println!("arrow"),
+            Token::Arrow => println!("=>"),
+            Token::Assign => println!("<-"),
             Token::EOF => println!("<EOF>")
         }
     }

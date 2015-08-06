@@ -45,6 +45,7 @@ pub enum Token {
     Equal,
     LessThanEqual,
     Arrow,
+    Assign,
     EOF
 }
 
@@ -54,6 +55,7 @@ enum LexerState {
     Identifier,
     Number,
     LessThan,
+    EqualsOrArrow,
     CommentOrMinus,
     CommentOrParens,
     SingleLineComment,
@@ -101,6 +103,9 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             '(' => {
                                 state = LexerState::CommentOrParens;
                             },
+                            '=' => {
+                                state = LexerState::EqualsOrArrow;
+                            },
                             '"' => {
                                 state = LexerState::String;
                             },
@@ -116,7 +121,6 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                             '*' => { tokens.push(Token::Times); },
                             '/' => { tokens.push(Token::Divide); },
                             '~' => { tokens.push(Token::Tilde); },
-                            '=' => { tokens.push(Token::Equal); },
                             _ => {
                                 println!("Unexpected character: {}", ch);
                                 return tokens;
@@ -211,12 +215,13 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                     LexerState::LessThan => {
                         match *ch {
                             '-' => {
-                                tokens.push(Token::Arrow);
+                                tokens.push(Token::Assign);
                             },
                             '=' => {
                                 tokens.push(Token::LessThanEqual);
                             },
                             '\n' => {
+                                tokens.push(Token::LessThan);
                                 line_no += 1;
                             },
                             _ => {
@@ -263,6 +268,21 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                 } else {
                                     state = LexerState::MultiLineComment;
                                 }
+                            }
+                        }
+                    },
+                    LexerState::EqualsOrArrow => {
+                        match *ch {
+                            '>' => {
+                                tokens.push(Token::Arrow);
+                            },
+                            '\n' => {
+                                tokens.push(Token::Equal);
+                                line_no += 1;
+                            },
+                            _ => {
+                                tokens.push(Token::Equal);
+                                use_char = false;
                             }
                         }
                     },
