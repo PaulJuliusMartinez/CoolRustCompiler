@@ -15,8 +15,8 @@ mod printer;
 fn main() {
     let mut f = File::open("cool.c").unwrap();
     let mut s = String::new();
-    f.read_to_string(&mut s);
-    let mut chars = s.chars().peekable();
+    let _ = f.read_to_string(&mut s);
+    let chars = s.chars().peekable();
 
     let tokens = lexer::lex(chars);
     let program = parser::parse_cool_program(&tokens);

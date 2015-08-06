@@ -187,7 +187,6 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
 
     // Constants
     let object = Rc::new("Object".to_string());
-    let no_type = Rc::new("_no_type".to_string());
     let self_obj = Rc::new("self".to_string());
 
     let mut tokens_iter = tokens.iter().peekable();
@@ -818,7 +817,6 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
 
                     // 22:     E -> case E of M id : TYPE => E ; esac
                     reduce!(states, 22, 11);
-                    should_consume = false;
                     should_consume = false;
                 },
                 94 => {
