@@ -181,7 +181,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
     let mut identifiers: Vec<ast::Symbol> = Vec::new();
     let mut expressions: Vec<Box<ast::Expression>> = Vec::new();
     let mut expression_lists: Vec<Vec<Box<ast::Expression>>> = Vec::new();
-    let mut case_branches: Vec<ast::CaseBranch> = Vec::new();
+    let mut case_branches: Vec<Vec<Box<ast::CaseBranch>>> = Vec::new();
     let mut states: Vec<i32> = vec![0];
     let mut is_statics: Vec<bool> = Vec::new();
 
@@ -338,7 +338,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 17 => {
                     match *curr {
-                        Token::Arrow => {
+                        Token::Assign => {
                             states.push(28);
                         },
                         Token::Semicolon => {
@@ -446,7 +446,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 30 => {
                     match *curr {
-                        Token::Arrow => {
+                        Token::Assign => {
                             states.push(54);
                         },
                         Token::LeftParen => {
@@ -471,6 +471,10 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 33 => {
                     match_identifier!(curr, states, 57, identifiers);
+                },
+                34 => {
+                    case_branches.push(Vec::new());
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
                 },
                 35 => {
                     match_type!(curr, states, 94, types);
@@ -564,7 +568,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 59 => {
                     match *curr {
-                        Token::Arrow => {
+                        Token::Assign => {
                             states.push(28);
                         },
                         Token::In => {
@@ -665,7 +669,7 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                 },
                 67 => {
                     match *curr {
-                        Token::Arrow => {
+                        Token::Assign => {
                             states.push(28);
                         },
                         Token::In => {
@@ -745,6 +749,76 @@ pub fn parse_cool_program(tokens: &Vec<Token>) -> Option<ast::Program> {
                     )));
                     // 18:     E -> if E then E else E fi
                     reduce!(states, 18, 7);
+                    should_consume = false;
+                },
+                78 => {
+                    after_expression!(curr, states, Token::Of, 79,
+                                      types, no_type, should_consume, is_statics);
+                },
+                79 => {
+                    states.push(80);
+                    should_consume = false;
+                },
+                80 => {
+                    match_identifier!(curr, states, 81, identifiers);
+                },
+                81 => {
+                    match_single!(curr, Token::Colon, states, 82);
+                },
+                82 => {
+                    match_type!(curr, states, 83, types);
+                },
+                83 => {
+                    match_single!(curr, Token::Arrow, states, 84);
+                },
+                84 => {
+                    expression_start!(curr, states, identifiers, expressions, expression_lists);
+                },
+                85 => {
+                    after_expression!(curr, states, Token::Semicolon, 86,
+                                      types, no_type, should_consume, is_statics);
+                },
+                86 => {
+                    match *curr {
+                        Token::Esac => {
+                            states.push(87);
+                        },
+                        _ => {
+                            let body = expressions.pop().unwrap();
+                            let cool_type = types.pop().unwrap();
+                            let binding = identifiers.pop().unwrap();
+                            case_branches.last_mut().unwrap().push(Box::new(
+                                ast::CaseBranch{
+                                    name: binding,
+                                    cool_type: cool_type,
+                                    expr: body
+                                }
+                            ));
+                            // 49:     M -> M id : TYPE => E ;
+                            reduce!(states, 49, 7);
+                            should_consume = false;
+                        }
+                    }
+                },
+                87 => {
+                    let body = expressions.pop().unwrap();
+                    let cool_type = types.pop().unwrap();
+                    let binding = identifiers.pop().unwrap();
+                    let mut branches = case_branches.pop().unwrap();
+                    branches.push(Box::new(ast::CaseBranch{
+                        name: binding,
+                        cool_type: cool_type,
+                        expr: body
+                    }));
+                    let case_value = expressions.pop().unwrap();
+                    expressions.push(Box::new(ast::Expression::Case(
+                        case_value,
+                        branches
+                    )));
+
+                    // 22:     E -> case E of M id : TYPE => E ; esac
+                    reduce!(states, 22, 11);
+                    should_consume = false;
                     should_consume = false;
                 },
                 94 => {
@@ -1417,6 +1491,9 @@ fn goto(state: i32, rule: i32) -> i32 {
         32 => {
             on_expression_goto!(state, rule, 69)
         },
+        34 => {
+            on_expression_goto!(state, rule, 78)
+        },
         36 => {
             on_expression_goto!(state, rule, 107)
         },
@@ -1523,6 +1600,21 @@ fn goto(state: i32, rule: i32) -> i32 {
             on_expression_goto!(state, rule, 76)
         },
         76 => {
+            after_static_goto!(state, rule)
+        },
+        78 => {
+            after_static_goto!(state, rule)
+        },
+        79 => {
+            match rule {
+                49 => 80,
+                _ => panic!("GOTO PANIC IN STATE {} AFTER REDUCING RULE {}", state, rule)
+            }
+        },
+        84 => {
+            on_expression_goto!(state, rule, 85)
+        },
+        85 => {
             after_static_goto!(state, rule)
         },
         95 => {

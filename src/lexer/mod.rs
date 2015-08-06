@@ -173,6 +173,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                 state = LexerState::Start;
                             }
                             '\n' => {
+                                line_no += 1;
                                 state = LexerState::Start;
                             },
                             ' ' | '\r' | '\t' => {
@@ -285,6 +286,7 @@ pub fn lex(mut chars: Peekable<Chars>) -> Vec<Token> {
                                 use_char = false;
                             }
                         }
+                        state = LexerState::Start;
                     },
                     LexerState::MultiLineComment => {
                         match *ch {

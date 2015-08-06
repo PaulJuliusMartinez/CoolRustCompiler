@@ -1,8 +1,9 @@
 class A inherits B {
-result: T <- 5 + 3 - 8.foo() / 4@F.bar() + 3 * 9 * ~9;
-foo: T <- not not not 8 <= 3;
-foo: T <- not isvoid not 7 < 2;
-foo: T <- isvoid ~8 * 45 = ~result - 9 * 3 / 1;
+result: T <- case x of
+            b : Int => { 22; };
+            fwon : Bo => 3 + 4;
+            rec : X => case y of z : Type => 1; esac;
+            esac;
 };
 
 class C inherits D {};
